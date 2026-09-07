@@ -36,6 +36,19 @@ baseline is the better buy.
 **Both models fail at predicting Debt collection and Debt or credit management.**  
 They are the only pair no model could separate.
 
+**Confusion matrices.**
+
+<table>
+<tr>
+<td width="50%" align="center"><em>TF-IDF + Logistic Regression (macro F1 = 0.797)</em></td>
+<td width="50%" align="center"><em>DistilBERT (macro F1 = 0.814)</em></td>
+</tr>
+<tr>
+<td><img src="confusion_matrix_lr.png" width="100%" alt="Confusion matrix for TF-IDF + Logistic Regression across the ten product categories"></td>
+<td><img src="confusion_matrix_distilbert.png" width="100%" alt="Confusion matrix for DistilBERT across the ten product categories"></td>
+</tr>
+</table>
+
 ---
 
 ## Proposed deployment structure
