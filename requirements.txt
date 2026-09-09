@@ -1,25 +1,30 @@
-# BIA-5401 Final Project — dependencies
-# Python 3.13.1
+# Automated Classification of Consumer Financial Complaints — dependencies
+# Python 3.13
 #
-# The project runs across two environments:
-#   - Local  : data_cleaning.ipynb, ml_model_lr_0809.ipynb
-#   - Colab  : dl_model_distilbert.ipynb (GPU runtime required)
+# Two environments:
+#   - Local : data_cleaning.ipynb, ml_model_lr.ipynb
+#   - Colab : dl_model_distilbert.ipynb (GPU runtime required)
 #
-# Installing this file covers the local notebooks. The Colab notebook installs
-# its own deep-learning dependencies in Step 0 — see the bottom of this file.
+# Installing this file covers the local notebooks. The Colab notebook installs its
+# own deep-learning dependencies in Step 0 — see the bottom of this file.
+#
+# Versions below are the ones the committed notebook outputs were produced with.
+# Lower bounds rather than pins, except where a major version changes behaviour.
 
 # ---------------------------------------------------------------------------
 # Local environment — install these
 # ---------------------------------------------------------------------------
 
 # core data handling
-pandas==2.2.2
+pandas>=2.2,<4           # 3.0.0 used here; groupby.apply drops the grouping column in 3.x,
+                         # which is why Step 2 uses an explicit loop instead
+numpy>=2.0               # 2.4.1 used here
 pyarrow>=15.0            # parquet read/write backend for pandas
-duckdb>=1.0              # out-of-core filtering of the 9 GB source CSV
+duckdb>=1.0              # out-of-core filtering of the ~9 GB source CSV
 
 # machine learning
-scikit-learn==1.6.1
-joblib>=1.3              # persisting the fitted model and vectorizer
+scikit-learn>=1.6        # 1.9.0 used here
+scipy>=1.11              # spearmanr, softmax, chi2 (Steps 7 and 9)
 
 # plotting
 matplotlib>=3.8
@@ -27,19 +32,19 @@ matplotlib>=3.8
 # notebook environment
 jupyter>=1.0
 ipykernel>=6.0
+nbconvert>=7.0           # only needed to re-execute the notebooks headlessly
 
 # ---------------------------------------------------------------------------
 # Colab environment — do NOT install locally
 # ---------------------------------------------------------------------------
-# The DistilBERT notebook runs on Google Colab with a T4 GPU. Colab already
-# provides torch, pandas, numpy, scikit-learn and matplotlib. Only the three
-# packages below need installing, and Step 0 of that notebook does it:
+# The DistilBERT notebook runs on Google Colab with a T4 GPU. Colab already provides
+# torch, pandas, numpy, scikit-learn and matplotlib. Only the three packages below
+# need installing, and Step 0 of that notebook does it:
 #
 #     !pip install -q transformers datasets accelerate
 #
-# Left commented out deliberately: torch is ~2-3 GB and is not needed by either
-# local notebook. Uncomment only if you intend to fine-tune DistilBERT locally
-# on your own GPU instead of using Colab.
+# Left commented out deliberately: torch is ~2-3 GB and neither local notebook needs
+# it. Uncomment only to fine-tune DistilBERT locally instead of on Colab.
 #
 # torch>=2.0             # PyTorch — the framework Transformers runs on
 # transformers>=4.40     # DistilBERT model, tokenizer, and Trainer API
