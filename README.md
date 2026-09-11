@@ -1,33 +1,22 @@
-# Two Models, One Wall
+# Auto-sorting Financial Complaints
 
-A linear classifier and a transformer sort 407,321 real customer complaints into ten
-queues. They win on the same categories, lose on the same categories, and the reason
-turns out to be in the labels rather than in either model.
+TF-IDF + Logistic Regression against a fine-tuned DistilBERT, sorting 407,321 real customer complaints into ten queues. They win on the same categories, lose on the same categories,
+and the reason turns out to be in the labels rather than in either model.
 
 ## Goal
 
 Any company that accepts free-text complaints has to get each one to the right team.
-Automating that is well-established practice, and this project takes no position on
-whether it works. It works.
+Automating that is a well-established practice. This project investigates two questions:
+**what is each model actually good at here, and does a more advanced model earn its place?**
+A per-category breakdown of model performance can show the strengths and weaknesses.
 
-The useful question is narrower: **what is each model actually good at here, and what
-does neither of them fix?** A bag-of-words linear classifier and a fine-tuned transformer
-do not fail in the same places, and knowing which is which is what decides whether a
-transformer earns its cost on a given queue. A single headline score cannot answer that.
-A per-category breakdown can.
+So the experiment holds everything else still. Both models see the same corpus,
+time-ordered split, imbalance handling, and training rows. The model is the only thing that
+varies, which makes the difference between them comparable.
 
-So the experiment holds everything else still. Both models see the same corpus, the same
-time-ordered split, the same imbalance handling, the same 70,114 training rows, and the
-same complete absence of hyperparameter tuning. The model family is the only thing that
-varies, which is what makes the difference between them readable.
+Complaint archives inside companies are confidential, so the data
+here is the CFPB Consumer Complaint Database: real complaints, written by real people, at real scale.
 
-This is not a deployment-ready system. There is no serving layer, no threshold
-calibration, no confidence-based routing to a human. Those are the next questions, not
-these ones.
-
-Complaint archives inside companies are confidential and heavily regulated, so the data
-here is the CFPB Consumer Complaint Database: real complaints, written by real people,
-at real scale, with all the mess that implies.
 
 ## Results
 
@@ -41,40 +30,26 @@ of how much traffic each one carries.
 | Accuracy | 0.7898 | 0.8034 |
 | Weighted F1 | 0.8061 | 0.8173 |
 | Balanced accuracy | 0.7766 | 0.7994 |
-| Macro F1 (intake-volume weighted) | 0.7084 | 0.7270 |
-| Training time | **11.6 s**, CPU | 1,434 s, Tesla T4 |
+| Training time | **11.6 s**, CPU | 1,434 s, Tesla T4 GPU |
 
-### The wall
-
-Both models are strongest on exactly the same categories and weakest on exactly the same
-categories. Mortgage (0.929 / 0.935) and Student loan (0.918 / 0.923) are near-solved for
-both. Debt or credit management (0.236 / 0.255) and Prepaid card (0.345 / 0.419) are
-badly broken for both.
-
-Swapping a bag-of-words model for a pretrained transformer did not reorder that ranking
-at all. When two quite different model families agree that precisely on what is hard,
-the difficulty is a property of the task, not of the classifier.
-
-### What the transformer chips off it
-
-Subtracting the two per-category F1 columns shows the transformer's two points are not
-spread evenly. They land almost entirely on the categories the wall holds down.
+**Both models are strongest on exactly the same categories and weakest on exactly the same categories.**  
 
 | Category | LR | DistilBERT | Gain (F1 pts) |
 | --- | --- | --- | --- |
-| Prepaid card | 0.345 | 0.419 | **+7.4** |
-| Vehicle loan or lease | 0.829 | 0.857 | +2.8 |
-| Money transfer / crypto | 0.697 | 0.724 | +2.7 |
-| Debt or credit management | 0.236 | 0.255 | +1.9 |
-| Credit card | 0.815 | 0.827 | +1.2 |
-| Payday / personal loan | 0.617 | 0.629 | +1.2 |
-| Checking or savings | 0.775 | 0.782 | +0.7 |
-| Mortgage | 0.929 | 0.935 | +0.6 |
+| Mortgage | 0.929 | 0.935 | +0.6 | 
+| Student loan | 0.918 | 0.923 | +0.5 | 
 | Debt collection | 0.871 | 0.876 | +0.5 |
-| Student loan | 0.918 | 0.923 | +0.5 |
+| Vehicle loan or lease | 0.829 | 0.857 | +2.8 |
+| Credit card | 0.815 | 0.827 | +1.2 |
+| Checking or savings | 0.775 | 0.782 | +0.7 |
+| Money transfer / crypto | 0.697 | 0.724 | +2.7 |
+| Payday / personal loan | 0.617 | 0.629 | +1.2 |
+| Prepaid card | 0.345 | 0.419 | **+7.4** |
+| Debt or credit management | 0.236 | 0.255 | +1.9 |
 
-That gives each model's strength and weakness as a single rule. **Where a category owns
-distinctive vocabulary, TF-IDF has already extracted everything there is to extract.**
+- Mortgage and Student loan are near-solved. Debt or credit management and Prepaid card are badly broken for both.
+
+- **For category owning distinctive vocabulary, TF-IDF has already captured everything.**
 Mortgage complaints say escrow and servicer; student loan complaints say deferment and
 forgiveness. Counting those words is sufficient, and reading them in context adds half a
 point. **Where categories share vocabulary, context recovers some of what counting
