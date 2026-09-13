@@ -1,69 +1,54 @@
 # Auto-sorting Financial Complaints
+> How accurately can free-text complaints be automatically classified for routing? This project evaluates the predictive performance and practical trade-offs of different NLP approaches using real-world consumer complaints
 
-TF-IDF + Logistic Regression against a fine-tuned DistilBERT, sorting 407,321 real customer complaints into ten queues. They win on the same categories, lose on the same categories,
-and the reason turns out to be in the labels rather than in either model.
 
 ## Goal
 
-Any company that accepts free-text complaints has to get each one to the right team.
-Automating that is a well-established practice. This project investigates two questions:
-**what is each model actually good at here, and does a more advanced model earn its place?**
-A per-category breakdown of model performance can show the strengths and weaknesses.
+This project wants to build and evaluate an automated complaint-routing system that assigns customer complaints to the correct product category. The project compares a traditional TF-IDF + Logistic Regression model with DistilBERT to determine whether advanced NLP delivers enough improvement in classification accuracy to justify its complexity and computational cost.
 
-So the experiment holds everything else still. Both models see the same corpus,
-time-ordered split, imbalance handling, and training rows. The model is the only thing that
-varies, which makes the difference between them comparable.
-
-Complaint archives inside companies are confidential, so the data
-here is the CFPB Consumer Complaint Database: real complaints, written by real people, at real scale.
+Model performance will be evaluated both overall and by complaint   category to identify strengths, weaknesses, and limitations.
 
 
 ## Results
 
-Both models were scored on the identical 36,615-row test set, read exactly once.
-**Macro F1 is the headline** because all ten routing queues matter equally, regardless
-of how much traffic each one carries.
+### DistilBERT wins every metric, but by margins 1.1-2.0 points, and it takes far longer time to train. Both models were scored on the identical 36,615-row test set.
+
 
 | Metric | TF-IDF + Logistic Regression | DistilBERT |
 | --- | --- | --- |
-| Macro F1 | 0.7030 | **0.7225** |
 | Accuracy | 0.7898 | 0.8034 |
+| Macro F1 | 0.7030 | 0.7225 |
 | Weighted F1 | 0.8061 | 0.8173 |
-| Balanced accuracy | 0.7766 | 0.7994 |
-| Training time | **11.6 s**, CPU | 1,434 s, Tesla T4 GPU |
+| Training time | **11.6 s**, CPU | 1,434 s, GPU |
 
-**Both models are strongest on exactly the same categories and weakest on exactly the same categories.**  
+> **Macro F1** averages the ten per-category F1 scores equally.  
+> **Weighted F1** averages the ten per-category F1 by category size.
 
-| Category | LR | DistilBERT | Gain (F1 pts) |
-| --- | --- | --- | --- |
-| Mortgage | 0.929 | 0.935 | +0.6 | 
-| Student loan | 0.918 | 0.923 | +0.5 | 
-| Debt collection | 0.871 | 0.876 | +0.5 |
-| Vehicle loan or lease | 0.829 | 0.857 | +2.8 |
-| Credit card | 0.815 | 0.827 | +1.2 |
-| Checking or savings | 0.775 | 0.782 | +0.7 |
-| Money transfer / crypto | 0.697 | 0.724 | +2.7 |
-| Payday / personal loan | 0.617 | 0.629 | +1.2 |
-| Prepaid card | 0.345 | 0.419 | **+7.4** |
-| Debt or credit management | 0.236 | 0.255 | +1.9 |
+
+### Both models are strongest and weakest on exactly the same categories
+
+| Category | Test rows | LR | DistilBERT | Gain (F1 pts) |
+| --- | --- | --- | --- | --- |
+| Mortgage | 2,641 | 0.929 | 0.935 | +0.6 |
+| Student loan | 1,459 | 0.918 | 0.923 | +0.5 |
+| Debt collection | 10,706 | 0.871 | 0.876 | +0.5 |
+| Vehicle loan or lease | 2,050 | 0.829 | 0.857 | +2.8 |
+| Credit card | 6,861 | 0.815 | 0.827 | +1.2 |
+| Checking or savings | 7,201 | 0.775 | 0.782 | +0.7 |
+| Money transfer / crypto | 3,455 | 0.697 | 0.724 | +2.7 |
+| Payday / personal loan | 1,430 | 0.617 | 0.629 | +1.2 |
+| Prepaid card | 431 | 0.345 | 0.419 | +7.4 |
+| Debt or credit management | 381 | 0.236 | 0.255 | +1.9 |
+
 
 - Mortgage and Student loan are near-solved. Debt or credit management and Prepaid card are badly broken for both.
 
-- **For category owning distinctive vocabulary, TF-IDF has already captured everything.**
-Mortgage complaints say escrow and servicer; student loan complaints say deferment and
-forgiveness. Counting those words is sufficient, and reading them in context adds half a
-point. **Where categories share vocabulary, context recovers some of what counting
-loses** — and that is where every meaningful gain sits.
-
-But chipping is not breaking. Prepaid card finishes at 0.42 and Debt or credit management
-at 0.26. The transformer improves the broken categories without repairing them.
+- For category owning distinctive vocabulary, TF-IDF has already captured everything.
 
 ### The verdict
 
-DistilBERT is ahead by 2.0 points of macro F1 and costs roughly 124 times the training
-time. No significance test was run, so treat the gap as a point estimate rather than a
-measured effect. Either way, two points of macro F1 — concentrated in categories that
-remain unusable afterward — is not what a routing team buys a GPU for. On this task, with
+DistilBERT is ahead by 2.0 points of macro F1 and costs roughly 124 times the training time and additional GPU resources. Either way, two points of macro F1 concentrated in categories that
+remain unusable afterward is not what a routing team buys a GPU for. On this task, with
 these labels, the two are a practical tie.
 
 ### Why those categories share a wall
