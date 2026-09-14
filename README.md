@@ -64,7 +64,8 @@ Across all 45 category pairs, shared vocabulary predicts swap rate: **Spearman r
 p = 2.1e-07**. The worst pair, Checking or savings
 against Money transfer, swaps 1,275 complaints, 12.0% of the two categories combined.
 
-![Lexical similarity against confusion rate](lexical_similarity_vs_confusion.png)
+<img width="1200" alt="lexical_similarity_vs_confusion" src="https://github.com/user-attachments/assets/65e14de2-2ea4-4487-a5d3-62f6411b9287" />
+
 
 So the problem is the vocabulary, not the model. TF-IDF only counts words, so two categories
 that use the same words look nearly identical to it. DistilBERT reads those words in context
