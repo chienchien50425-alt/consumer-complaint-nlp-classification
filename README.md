@@ -43,79 +43,74 @@ Model performance will be evaluated both overall and by complaint   category to 
 
 - Mortgage and Student loan are near-solved. Debt or credit management and Prepaid card are badly broken for both.
 
-- For category owning distinctive vocabulary, TF-IDF has already captured everything.
 
 ### The verdict
 
-DistilBERT is ahead by 2.0 points of macro F1 and costs roughly 124 times the training time and additional GPU resources. Either way, two points of macro F1 concentrated in categories that
-remain unusable afterward is not what a routing team buys a GPU for. On this task, with
-these labels, the two are a practical tie.
+DistilBERT is ahead by 2.0 points of macro F1 and costs roughly 124 times the training time
+plus a GPU. It also fails where Logistic Regression fails: Prepaid card finishes at 0.42 and
+Debt or credit management at 0.26, so the queues route badly under both.
 
 ### Why those categories share a wall
 
-The confusion matrix says which categories get mixed up. It does not say why. Representing
-each category as the mean TF-IDF vector of its training complaints, the cosine between two
-centroids measures how much vocabulary the pair shares. Plotting that against how often the
-pair actually gets swapped turns "these categories sound alike" into a testable claim.
+To test whether shared vocabulary is what drives the errors, each category is represented by
+the average TF-IDF vector of its training complaints, and all 45 category pairs are plotted
+on two axes:
+
+- **X-axis**- cosine similarity between the two category vectors, measuring how much vocabulary the pair shares (on training data).
+- **Y-axis**- how often the two categories are actually swapped (on held-out test data).
+
 
 Across all 45 category pairs, shared vocabulary predicts swap rate: **Spearman rho = 0.685,
-p = 2.1e-07**. Similarity is measured on training data and the error rate on held-out test
-data, so the two axes come from disjoint sources. The worst pair, Checking or savings
+p = 2.1e-07**. The worst pair, Checking or savings
 against Money transfer, swaps 1,275 complaints, 12.0% of the two categories combined.
 
 ![Lexical similarity against confusion rate](lexical_similarity_vs_confusion.png)
 
-This names the wall. Shared vocabulary is what holds those categories down, and it is also
-exactly what contextual reading partially repairs — which is why the gains in the table
-above fall where they do and nowhere else.
+So the problem is the vocabulary, not the model. TF-IDF only counts words, so two categories
+that use the same words look nearly identical to it. DistilBERT reads those words in context
+and recovers part of the difference: its gains land almost entirely on the categories that
+get confused with each other, but not by enough to make them usable.
 
-The pattern generalises past finance. Any company whose categories share terminology, whose
-volumes are lopsided, and whose labels are chosen by the customer will see the same shape:
-a transformer that pays for itself only on the overlapping queues, and pays for nothing on
-the clean ones.
 
 ## Key configuration
 
-Everything below the model family was deliberately matched. Where the two rows differ, the
-difference is a property of the method, not a tuning choice.
+Both models were given the same data, the same split, and the same imbalance handling. Where
+the two columns differ below, it is because the two methods need different things, not
+because one was tuned harder than the other.
 
 | | TF-IDF + Logistic Regression | DistilBERT |
 | --- | --- | --- |
-| Text cleaning | Redaction masks, case, punctuation and digits all stripped | Redaction masks only — case and punctuation are signal a transformer can use |
+| Text cleaning | Redaction masks, case, punctuation and digits all stripped | Redaction masks only |
 | Representation | 20,000 unigram + bigram features, English stopwords removed, fitted on train only | `distilbert-base-uncased`, 256 wordpieces |
 | Imbalance handling | `class_weight='balanced'` | Class-weighted cross-entropy, same `N / (K · n_k)` formula |
 | Training rows | 70,114 | 70,114 |
-| Hyperparameter search | None — scikit-learn defaults (`C=1.0`, L2, lbfgs) | None — 3 epochs, lr 2e-5, batch 32, weight decay 0.01 |
+| Hyperparameter | C=1.0, L2, lbfgs | 3 epochs, lr 2e-5, batch 32, weight decay 0.01 |
 | Checkpoint selection | Not applicable | Best macro F1 on the validation set |
 | Hardware and time | CPU, 11.6 s | Tesla T4, 1,434 s |
 
-The cleaning asymmetry is intentional and it is the one place the pipelines genuinely
-diverge. It also forces a constraint on the split, covered next.
 
 ## The data and the pipeline
 
 The source is the CFPB Consumer Complaint Database, a ~9.1 GB CSV of ~17M rows, streamed
-with DuckDB rather than loaded into memory. Filtering to complaints received between
+with DuckDB. Filtering to complaints received between
 2025-01-01 and 2026-12-31, in ten product categories, with a non-empty narrative leaves
-**407,321 rows** at a 38.2x imbalance ratio.
+**407,321 rows**.
 
-The corpus is template-driven: the single most-filed text appears 7,111 times. Splitting
-at random puts copies of one letter on both sides of the split and scores the model on text
-it memorised. So rows are deduplicated on a canonical key that applies the same
-normalisation the model input goes through — which has to be at least as aggressive as the
-more aggressive of the two cleaners, or documents the model cannot tell apart still
-straddle the split. 210 keys carry conflicting labels (24,007 rows) and are dropped
-outright; the rest collapse to **334,658 distinct complaints**.
+Rows are deduplicated before the split. Two complaints count as the same when their text is
+identical after the cleaning the model's input receives. (22 narratives clean down to
+nothing and are dropped.)
+
+1. **Drop text whose label is ambiguous.** 210 texts appear under more than one category,
+   covering 24,007 rows. The text does not say which label is right, so all of them go.
+
+2. **Collapse the copies.** One text appears 7,111 times. The 383,292 remaining rows fold down to **334,658 distinct complaints**.
+
 
 The split is then time-ordered, training on the past and evaluating on months never seen:
 
     train  ≤ 2025-12  (capped to 70,114)
     val     2026-01/02  (29,705)
     test    2026-03/04  (36,615)
-
-A further 22,020 rows from 2026-05 onward are excluded rather than scored. The CFPB
-publishes a narrative only after the company responds or 60 days pass, so fast responders
-appear before slow ones and those months are biased, not merely incomplete.
 
 Three rules hold throughout: no text straddles a split even after cleaning; evaluation sets
 are never rebalanced, so the test set runs at its real 28:1 imbalance; and the test set is
@@ -125,30 +120,20 @@ only in training, leaving the test set skewed toward genuinely novel text.
 
 ## Limitations
 
-**The labels were chosen by consumers, not by specialists.** Every category in this dataset
-was picked from a drop-down by the person filing the complaint. "Debt collection" versus
-"Debt or credit management" is a distinction a consumer has no particular reason to draw
-correctly, and those two are simultaneously the most lexically similar pair in the corpus
-(cosine 0.772) and among the worst-scoring for both models. Some fraction of what is
-measured here as model error is label noise. On a specialist-annotated corpus both models
-should score higher, and the gap between them might well look different too. The ceiling
-reported above belongs partly to the data.
+**The labels were chosen by consumers, not by specialists.** Some categories are very difficult for consumers to distinguish. For example, “Debt collection” and “Debt or credit management” are very similar, with a cosine similarity of 0.772. These two categories are also among the hardest categories for both models to classify correctly.
 
-**Compute budget, truncation, and no tuning.** Training rows were capped at 8,000 per class
-as a GPU budget — imbalance is handled by class weighting, not by the cap. DistilBERT
+This suggests that some of the errors may come from incorrect or inconsistent labels in the dataset. If the complaints were labeled by specialists, both models would likely perform better. The performance ceiling is partly limited by the quality of the dataset itself.
+
+**Compute budget, truncation.** Training rows were capped at 8,000 per class
+as a GPU budget, imbalance is handled by class weighting, not by the cap. DistilBERT
 truncates at 256 wordpieces while TF-IDF reads every document in full, so the two models do
-not see the same amount of each long complaint. And neither model received any
-hyperparameter search, so neither number is the best its method can do. They are comparable
-to each other, not to a tuned benchmark.
+not see the same amount of each long complaint.
 
 ## Files and how to run
 
 | File | Role |
 | --- | --- |
 | `data_cleaning.ipynb` | Filters the raw CFPB CSV with DuckDB, writes `cfpb_filtered.parquet` |
-| `ml_model_lr.ipynb` | Owns the split — writes `train/val/test.parquet` — then trains and evaluates Logistic Regression |
-| `dl_model_distilbert.ipynb` | Fine-tunes DistilBERT on those same three parquets; needs a GPU (built for Colab with a T4) |
+| `ml_model_lr.ipynb` | Owns the split. writes `train/val/test.parquet` and trains and evaluates Logistic Regression |
+| `dl_model_distilbert.ipynb` | Fine-tunes DistilBERT on those same three parquets; needs a GPU |
 | `requirements.txt` | Dependencies for the two local notebooks |
-
-Run them in that order. The split lives in the second notebook, so the third cannot be run
-until it has been.
