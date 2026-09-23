@@ -94,7 +94,7 @@ because one was tuned harder than the other.
 
 The source is the CFPB Consumer Complaint Database, a ~9.1 GB CSV of ~17M rows, streamed
 with DuckDB. Filtering to complaints received between
-2025-01-01 and 2026-12-31, in ten product categories, with a non-empty narrative leaves
+2025-01-01 and 2026-04-30, in ten product categories, with a non-empty narrative leaves
 **407,321 rows**.
 
 Rows are deduplicated before the split. Two complaints count as the same when their text is
